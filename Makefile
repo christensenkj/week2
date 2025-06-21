@@ -23,6 +23,10 @@ QUEUE_OBJECT_FILES := queue.o $(LINKED_LIST_OBJECT_FILES)
 FUNCTIONAL_TEST_SOURCE_FILES := linked_list_test_program.c
 FUNCTIONAL_TEST_OBJECT_FILES := linked_list_test_program.o
 
+# Specify what to test.
+#
+FUNCTIONAL_TEST_COMPILER_DEFINES := -DTEST_LINKED_LIST -DTEST_QUEUE
+
 liblinked_list.so : $(LINKED_LIST_OBJECT_FILES)
 	$(CC) $(CFLAGS) $(SO_FLAGS) $^ -o $@
 
@@ -30,7 +34,7 @@ libqueue.so : $(QUEUE_OBJECT_FILES)
 	$(CC) $(CFLAGS) $(SO_FLAGS) $^ -o $@
 
 linked_list_test_program: liblinked_list.so libqueue.so $(FUNCTIONAL_TEST_OBJECT_FILES)
-	$(CC) -o $@ $(FUNCTIONAL_TEST_OBJECT_FILES)  -L `pwd` -llinked_list
+	$(CC) -o $@ $(FUNCTIONAL_TEST_OBJECT_FILES) -L `pwd` -llinked_list -lqueue
 
 run_functional_tests: linked_list_test_program
 	LD_LIBRARY_PATH=`pwd`:$$LD_LIBRARY_PATH ./linked_list_test_program
@@ -40,6 +44,9 @@ run_functional_tests_gdb: linked_list_test_program
 
 run_valgrind_tests: linked_list_test_program
 	LD_LIBRARY_PATH=`pwd`:$$LD_LIBRARY_PATH valgrind ./linked_list_test_program
+
+linked_list_test_program.o : linked_list_test_program.c
+	$(CC) -c -o linked_list_test_program.o $(CFLAGS) $(FUNCTIONAL_TEST_COMPILER_DEFINES) $^
 
 %.o : %.c
 	$(CC) -c $(CFLAGS) $^ -o $@

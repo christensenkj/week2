@@ -8,6 +8,20 @@
 #include "linked_list.h"
 #include "queue.h"
 
+// Check that valid compiler defines have been passed in.
+//
+#ifdef TEST_LINKED_LIST
+#define VALID_TEST
+#endif
+
+#ifdef TEST_QUEUE
+#define VALID_TEST
+#endif
+
+#ifndef VALID_TEST
+#error "Improper set of compiler defines specified, check Makefile"
+#endif
+
 #define TEST(x) printf("Running test " #x "\n"); fflush(stdout);
 #define SUBTEST(x) printf("    Executing subtest " #x "\n"); fflush(stdout); \
                    alarm(1);
@@ -62,10 +76,12 @@ void * instrumented_malloc(size_t size) {
 // Tests linked list and queue handling of being passed NULL pointers.
 //
 void check_null_handling(void) {
+    bool status = false;
+#ifdef TEST_LINKED_LIST
     TEST(linked_list_check_null_handling)
 
     SUBTEST(linked_list_delete)
-    bool status = linked_list_delete(NULL);
+    status = linked_list_delete(NULL);
     FAIL(status != false,
          "linked_list_delete(NULL) did not return false")
 
@@ -105,7 +121,9 @@ void check_null_handling(void) {
          "linked_list_find(NULL, 0) did not return SIZE_MAX");
 
     PASS(linked_list_check_null_handling)
+#endif
 
+#ifdef TEST_QUEUE
     TEST(queue_check_null_handling)
 
     SUBTEST(queue_delete)
@@ -147,9 +165,11 @@ void check_null_handling(void) {
          "queue_next(NULL, &next_value) modified the variable next_value");
 
     PASS(queue_check_null_handling)
+#endif
 }
 
 void check_empty_list_and_queue_properties(void) {
+#ifdef TEST_LINKED_LIST
     TEST(check_empty_list_properties)
     SUBTEST(linked_list_create)
     struct linked_list * ll = linked_list_create();
@@ -188,12 +208,14 @@ void check_empty_list_and_queue_properties(void) {
     linked_list_delete_iterator(iter);
     linked_list_delete(ll);
     PASS(check_empty_list_properties)
+#endif
 
+#ifdef TEST_QUEUE
     // Check empty queue properties.
     //
     TEST(check_empty_queue_properties)
-    struct queue * queue = queue_create();
     SUBTEST(queue_create)
+    struct queue * queue = queue_create();
     FAIL(queue == NULL,
          "Failed to create queue.");
     
@@ -214,9 +236,12 @@ void check_empty_list_and_queue_properties(void) {
          "queue_pop() on empty queue did not return false")
     queue_delete(queue);
     PASS(check_empty_queue_properties)
+#endif
 }
 
 void check_insertion_functionality(void) {
+    bool status = false;
+#ifdef TEST_LINKED_LIST
     TEST(check_linked_list_insertion_functionality)
     SUBTEST(check_insert_end)
     // Check insertion at end with an iterator.
@@ -356,7 +381,7 @@ void check_insertion_functionality(void) {
     ll = linked_list_create();
     FAIL(ll == NULL,
          "Failed to create new linked_list (#5)")
-    bool status = linked_list_insert(ll, 0, 1);
+    status = linked_list_insert(ll, 0, 1);
     FAIL(status == false,
          "Failed to insert 1 at the beginning of linked_list (#5)")
     status = linked_list_insert(ll, 1, 2);
@@ -386,7 +411,9 @@ void check_insertion_functionality(void) {
     linked_list_delete_iterator(iter);
 
     PASS(check_linked_list_insertion_functionality)
+#endif
 
+#ifdef TEST_QUEUE
     TEST(check_queue_push_functionality)
 
     SUBTEST(queue_push)
@@ -447,9 +474,11 @@ void check_insertion_functionality(void) {
          "Failed to delete queue");
 
     PASS(queue_pop_values)
+#endif
 }
 
 void check_linked_list_find_functionality(void) {
+#ifdef TEST_LINKED_LIST
     TEST(check_linked_list_find_functionality)
 
     // Single linked_list, find elements.
@@ -502,9 +531,11 @@ void check_linked_list_find_functionality(void) {
     linked_list_delete(ll);
 
     PASS(check_linked_list_find_functionality)
+#endif
 }
 
 void check_linked_list_additional_delete_tests(void) {
+#ifdef TEST_LINKED_LIST
     TEST(linked_list_additional_delete_tests)
 
     SUBTEST(insert_and_delete_non_empty_linked_list)
@@ -524,6 +555,7 @@ void check_linked_list_additional_delete_tests(void) {
          "Failed to delete non-empty linked_list.")
 
     PASS(linked_list_additional_delete_tests)
+#endif 
 }
 
 int main(void) {
