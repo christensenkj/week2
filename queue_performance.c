@@ -5,7 +5,10 @@
 #include <string.h>
 #include <time.h>
 
+#ifdef COMPILE_ARM_PMU_CODE
 #include "arm_pmu.h"
+#endif
+
 #include "mmio.h"
 #include "queue.h"
 
@@ -336,6 +339,9 @@ int main(void) {
 	malloc_invocations = 0;
 	free_invocations   = 0;
     }
+
+    printf("All work complete, exit.\n");
+    fflush(stdout);
 
     // Free
     //
