@@ -1,3 +1,27 @@
+/*
+MIT License
+
+Copyright (c) 2025 pointerwars2025
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
 #ifndef LINKED_LIST_H_
 #define LINKED_LIST_H_
 
@@ -16,12 +40,22 @@
 //    test infrastructure a bit more flexility. See linked_list.c for
 //    declarations of those function pointers.
 
+
+#define INVALID_PTR_CHECK(_ptr, _ret_val) \
+do { \
+    if (_ptr == NULL) { \
+        return _ret_val; \
+    } \
+} while (0) 
+
 // Declaration of the linked_list data structure.
 // Feel free to change as desired.
 //
 struct node;
 struct linked_list {
     struct node * head;
+    struct node * tail;
+    unsigned int len;
 };
 
 // A node in the linked_list structure.
@@ -29,6 +63,7 @@ struct linked_list {
 //
 struct node {
     struct node * next;
+    struct node * prev;
     unsigned int data;
 };
 
