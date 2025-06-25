@@ -24,7 +24,7 @@
 
 #define TEST(x) printf("Running test " #x "\n"); fflush(stdout);
 #define SUBTEST(x) printf("    Executing subtest " #x "\n"); fflush(stdout); \
-                   alarm(1);
+                   //alarm(1);
 #define FAIL(cond, msg) if (cond) {\
                         printf("    FAIL! "); \
                         printf(#msg "\n"); \

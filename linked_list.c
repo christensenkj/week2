@@ -216,6 +216,15 @@ bool linked_list_remove(struct linked_list * ll, size_t index) {
         return false;
     }
 
+    // Deleting the last node in the list
+    if (ll->len == 1) {
+        struct node * tmp = ll->head;
+        ll->head = NULL;
+        free_fptr(tmp);
+        --ll->len;
+        return true;
+    }
+
     // Deleting the head of the linked list
     if (index == 0) {
         struct node * tmp = ll->head;

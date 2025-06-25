@@ -70,7 +70,7 @@ bool queue_delete(struct queue * queue) {
 bool queue_push(struct queue * queue, unsigned int data) {
     INVALID_PTR_CHECK(queue, false);
 
-    if (!linked_list_insert_front(queue->ll, data)) {
+    if (!linked_list_insert_end(queue->ll, data)) {
         return false;
     }
 
@@ -88,17 +88,17 @@ bool queue_pop(struct queue * queue, unsigned int * popped_data __attribute__((u
     }
 
     /* Set the pointer to the data to pop */
-    popped_data = &(queue->ll->tail->data);
+    *popped_data = queue->ll->head->data;
 
     /* Remove the last element of the queue. */
-    bool ret = linked_list_remove(queue->ll, queue->len - 1);
+    bool ret = linked_list_remove(queue->ll, 0);
     --queue->len;
 
     return ret;
 }
 
 size_t queue_size(struct queue * queue) {
-    INVALID_PTR_CHECK(queue, false);
+    INVALID_PTR_CHECK(queue, SIZE_MAX);
     return queue->len;
 }
 
@@ -108,11 +108,12 @@ bool queue_has_next(struct queue * queue) {
 }
 
 bool queue_next(struct queue * queue, unsigned int * popped_data __attribute__((unused))){
+    INVALID_PTR_CHECK(queue, false);
     if (!queue->len) {
         popped_data = NULL;
         return false;
     }
     
-    popped_data = &(queue->ll->tail->data);
+    *popped_data = queue->ll->head->data;
     return true;
 }
