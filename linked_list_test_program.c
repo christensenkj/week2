@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "linked_list.h"
+#include "slab_allocator.h"
 #include "queue.h"
 
 // Check that valid compiler defines have been passed in.
@@ -67,7 +68,7 @@ void * instrumented_malloc(size_t size) {
 	return NULL;
     }
 
-    void * ptr = malloc(size);
+    void * ptr = slab_allocator_malloc(size);
     instrumented_malloc_last_alloc_successful = (ptr != NULL);
 
     return ptr;
@@ -566,9 +567,9 @@ int main(void) {
     // Setup instrumented memory allocation/deallocation.
     //
     linked_list_register_malloc(&instrumented_malloc);
-    linked_list_register_free(&free);
+    linked_list_register_free(&slab_allocator_free);
     queue_register_malloc(&instrumented_malloc);
-    queue_register_free(&free);
+    queue_register_free(&slab_allocator_free);
 
     check_null_handling();
     check_empty_list_and_queue_properties();
