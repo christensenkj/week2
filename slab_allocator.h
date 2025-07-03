@@ -51,48 +51,65 @@ Notes for slab sizing
     L1 dcache line size: 64 bytes
 */
 
-#define MAX_SLABS   1024
-#define SLAB_SIZE   ((32 * 1024) / sizeof(struct free_node))
+/* Each slab should take up about 1/4 of the cache */
+#define SLAB_SIZE   (8 * 1024)
 
-/* A slab is a sixed-size chunk of memory that's allocated using 
-   stdlib malloc. The chunk exists as a node of a list of 
-   allocated chunks. Each chunk is formatted as a list of 
-   linked list nodes, representing free nodes available for
-   use in a general-purpose linked list.*/
+/* Supported allocation sizes in bytes as an X macro */
+#define SUPPORTED_SIZES_DEF(_func, ...) \
+    _func(16, ##__VA_ARGS__), \
+    _func(24, ##__VA_ARGS__), \
+    _func(32, ##__VA_ARGS__),
+
+//#define SUPPORTED_SIZES_DEF(_func, ...) 
+//    _func(16, ##__VA_ARGS__), 
+//    _func(24, ##__VA_ARGS__), 
+//    _func(32, ##__VA_ARGS__), 
+//    _func(64, ##__VA_ARGS__), 
+
+/* Define an array of supported sizes */
+#define SUPPORTED_SIZES_ELEM(_size) _size
+#define SUPPORTED_SIZES_ARRAY() \
+    unsigned int supported_sizes[MAX_SUPPORTED_SIZES] = { \
+        SUPPORTED_SIZES_DEF(SUPPORTED_SIZES_ELEM) \
+    }
+
+/* Enum of supported sizes */
+#define SUPPORTED_SIZES_ENUM(_size)   SIZE_##_size
+typedef enum {
+    SUPPORTED_SIZES_DEF(SUPPORTED_SIZES_ENUM)
+    MAX_SUPPORTED_SIZES,
+} slab_supported_sizes_t;
+
+/* A slab is a fixed-size chunk of memory that's allocated using 
+   stdlib malloc. The chunk exists as a list of nodes, sized according
+   to allocatable sizes. */
 
 struct free_node {
+    unsigned int alloc_size;
     struct free_node *next;
-    unsigned int padding[6];
 };
 
 struct slab {
-    struct free_node *nodes;
+    struct free_node *pool;
     struct free_node *free_list;
-    size_t size;
+    size_t size; // size of the whole slab in bytes
+    size_t num_nodes;
     size_t used;
     struct slab *next;
     struct slab *prev;
 };
 
 struct slab_allocator {
-    struct slab *slabs;  /* pointer to list of slabs in allocator */
-    size_t num_slabs;
+    /* Multiple slab lists, one for each supported alloc size */
+    struct slab *slabs[MAX_SUPPORTED_SIZES];  
+    size_t supported_sizes[MAX_SUPPORTED_SIZES];
+    size_t num_slabs[MAX_SUPPORTED_SIZES];
+    size_t num_total_slabs;
     size_t slab_size;
-    size_t max_slabs;
     bool init;
 };
 
-/* Helper macro to initialize a slab allocator container */
-#define SLAB_ALLOCATOR_CONFIG(_slabs, _num_slabs, _slab_size, _max_slabs, _init) \
-{ \
-    .slabs = _slabs, \
-    .num_slabs = _num_slabs, \
-    .slab_size = _slab_size, \
-    .max_slabs = _max_slabs, \
-    .init = _init, \
-}
-
-/* Function prototypes */
+/* Public functions */
 void *slab_allocator_malloc(size_t size);
 void slab_allocator_free(void* ptr);
 

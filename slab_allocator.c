@@ -23,69 +23,105 @@ SOFTWARE.
 */
 
 #include "slab_allocator.h"
-//#include "pthread.h"
 #include "signal.h"
 #include "unistd.h"
 #include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
 
-/* Global allocator instance */
-static struct slab_allocator g_alloc = SLAB_ALLOCATOR_CONFIG(NULL, 0, 0, 0, false);
-
 #ifdef FEATURE_MULTITHREADED
+#include "pthread.h"
 /* Recursive mutex to protect multithreaded accesses to the above global object */
-pthread_mutex_t g_alloc_rmutex;
+pthread_mutex_t g_allocator_rmutex;
 
 /* Initialize the recursive mutex used to lock 
-    accesses to the global allocator instance */
+    accesses to the glo#bal allocator instance */
 static void slab_allocator_mutex_init(void) {
     pthread_mutexattr_t attr;
     pthread_mutexattr_init(&attr);
     pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-    pthread_mutex_init(&g_alloc_rmutex, &attr);
+    pthread_mutex_init(&g_allocator_rmutex, &attr);
     pthread_mutexattr_destroy(&attr);
 }
 #endif
 
-static struct slab *create_slab() {
+/* Size of the node header, which contains the data size */
+#define NODE_HEADER_SIZE   (sizeof(unsigned int))
+
+/* Global allocator instance */
+static struct slab_allocator g_allocator = {0};
+
+/* Inititalize global allocator parameters on first use */
+static inline void allocator_init(void) {
+    /* Define an array of supported sizes */
+    SUPPORTED_SIZES_ARRAY();
+    for (int size_idx = 0; size_idx < MAX_SUPPORTED_SIZES; size_idx++) {
+        g_allocator.slabs[size_idx] = NULL;
+        g_allocator.num_slabs[size_idx] = 0;
+        g_allocator.supported_sizes[size_idx] = supported_sizes[size_idx];
+    }
+    g_allocator.num_total_slabs = 0;
+    g_allocator.slab_size = SLAB_SIZE;
+    g_allocator.init = true;
+}
+
+/* Map of allocation block size to slab list index */
+static inline int supported_alloc_size_map(size_t alloc_size) {
+    int idx = -1;
+    for (int i = 0; i < MAX_SUPPORTED_SIZES; i++) {
+        if (alloc_size == g_allocator.supported_sizes[i]) {
+           idx = i;
+           break; 
+        }
+    }
+    if (idx == -1) {
+        printf("karston index %d not supported with alloc size %ld\n", idx, alloc_size);
+        exit(1);
+    }
+    return idx;
+}
+
+static struct slab *create_slab(size_t size_idx) {
+#define NODE_SIZE(_alloc_size)  (_alloc_size + NODE_HEADER_SIZE)
+#define NEXT_NODE_ADDR(_node, _node_size) \
+    (struct free_node *) ((uint8_t *) _node + _node_size)
+
     /* Create a new slab */
     struct slab *new_slab = malloc(sizeof(struct slab));
-    new_slab->nodes = malloc(g_alloc.slab_size * sizeof(struct free_node));
-    new_slab->size = g_alloc.slab_size;
+    new_slab->pool = malloc(g_allocator.slab_size);
+    new_slab->size = g_allocator.slab_size;
     new_slab->used = 0;
     new_slab->next = NULL;
     new_slab->prev = NULL;
 
-    /* Initialize the free list for the new slab */
-    new_slab->free_list = new_slab->nodes;
-    for (size_t i = 0; i < g_alloc.slab_size - 1; i++) {
-        new_slab->nodes[i].next = &new_slab->nodes[i+1];
-    }
-    new_slab->nodes[g_alloc.slab_size-1].next = NULL;
+    /* Calculate the number of nodes in the slab */
+    size_t alloc_size = g_allocator.supported_sizes[size_idx];
+    size_t node_size = NODE_SIZE(alloc_size);
+    new_slab->num_nodes = new_slab->size / node_size;
 
+    /* Split the malloc'd chunk into nodes of desired size */
+    struct free_node *tmp = new_slab->pool;
+    int nodes = new_slab->num_nodes;
+    while (nodes > 1) {
+        tmp->next = NEXT_NODE_ADDR(tmp, node_size);
+        tmp->alloc_size = alloc_size;
+        tmp = tmp->next;
+        nodes--;
+    }
+    tmp->next = NULL;
+    tmp->alloc_size = alloc_size;
+
+    new_slab->free_list = new_slab->pool;
     return new_slab;
+
+#undef NODE_SIZE
+#undef NEXT_NODE_ADDR
 }
 
 /* Add a new slab to the allocator's list of managed memory slabs. */
-static struct slab *allocator_add_slab() {
-    /* Initialize global allocator instance on first malloc */
-    if (!g_alloc.init) {
-        g_alloc.slabs = NULL;
-        g_alloc.num_slabs = 0;
-        g_alloc.slab_size = SLAB_SIZE;
-        g_alloc.max_slabs = MAX_SLABS;
-        g_alloc.init = true;
-    }
-
-    /* Ensure we're not allocating too many slabs */
-    if (g_alloc.num_slabs >= MAX_SLABS) {
-        printf("Allocating too many slabs.\n");
-        return NULL; 
-    }
-
+static struct slab *allocator_add_slab(unsigned int size_idx) {
     /* Performs a malloc() */
-    struct slab *new_slab = create_slab();
+    struct slab *new_slab = create_slab(size_idx);
 
     if (new_slab == NULL) {
          printf("Unable to add new slab to allocator.\n");
@@ -93,29 +129,34 @@ static struct slab *allocator_add_slab() {
     }
 
     /* Add the new slab to the allocator's slab list */
-    if (g_alloc.slabs != NULL) {
-        g_alloc.slabs->prev = new_slab;
+    if (g_allocator.slabs[size_idx] != NULL) {
+        g_allocator.slabs[size_idx]->prev = new_slab;
     }
-    new_slab->next = g_alloc.slabs;
-    g_alloc.slabs = new_slab;
-    g_alloc.num_slabs++;
+    new_slab->next = g_allocator.slabs[size_idx];
+    g_allocator.slabs[size_idx] = new_slab;
+    g_allocator.num_slabs[size_idx]++;
+    g_allocator.num_total_slabs++;
 
     return new_slab;
 }
 
-void allocator_remove_slab(struct slab *slab) {
+static void allocator_remove_slab(struct slab *slab) {
+
+    size_t alloc_size = slab->pool->alloc_size;
+    int size_idx = supported_alloc_size_map(alloc_size);
+
     // Removing the only slab in the slab list
-    if (g_alloc.num_slabs == 1) {
-        g_alloc.slabs = NULL;
-        free(slab->nodes);
+    if (g_allocator.num_slabs[size_idx] == 1) {
+        g_allocator.slabs[size_idx] = NULL;
+        free(slab->pool);
         free(slab);
     }
 
     // Removing the head of the slab list
-    else if (slab == g_alloc.slabs) {
-        g_alloc.slabs = slab->next;
-        g_alloc.slabs->prev = NULL;
-        free(slab->nodes);
+    else if (slab == g_allocator.slabs[size_idx]) {
+        g_allocator.slabs[size_idx] = slab->next;
+        g_allocator.slabs[size_idx]->prev = NULL;
+        free(slab->pool);
         free(slab);
     }
 
@@ -124,56 +165,73 @@ void allocator_remove_slab(struct slab *slab) {
             slab->next->prev = slab->prev;
         }
         slab->prev->next = slab->next;
-        free(slab->nodes);
+        free(slab->pool);
         free(slab);
     }
 
-    g_alloc.num_slabs--;
+    g_allocator.num_slabs[size_idx]--;
+    g_allocator.num_total_slabs--;
 
-    if (!g_alloc.num_slabs) {
-        g_alloc.init = false;
+    if (!g_allocator.num_total_slabs) {
+        g_allocator.init = false;
     }
 }
 
 /* Specialized malloc implementation for linked_list node-sized 
    allocations */
-void* slab_allocator_malloc(size_t size) {
-    if (size > sizeof(struct free_node)) {
-        return NULL;
+void* slab_allocator_malloc(size_t alloc_size) {
+    /* Initialize global allocator instance on first malloc */
+    if (!g_allocator.init) {
+        allocator_init();
     }
 
+    /* Find size idx */
+    int size_idx = supported_alloc_size_map(alloc_size);
+
     /* Find a slab with free space */
-    struct slab *slab = g_alloc.slabs;
+    struct slab *slab = g_allocator.slabs[size_idx];
     while (slab != NULL) {
         if (slab->free_list != NULL) {
             struct free_node *node = slab->free_list;
             slab->free_list = node->next;
             slab->used++;
-            return node;
+
+            /* The first word of a block stores its size */
+            void *ret = (void *) ((uint8_t *) node + NODE_HEADER_SIZE);
+            return ret;
         }
         slab = slab->next;
     }
 
     /* No free space in any of the allocator's slabs, so add a new slab */
-    if (allocator_add_slab() != NULL) {
+    if (allocator_add_slab(size_idx) != NULL) {
         /* Recursive call to get a new slab with a full free_list */
-        return slab_allocator_malloc(size); 
+        return slab_allocator_malloc(alloc_size); 
     }
 
     return NULL;
 }
 
 void slab_allocator_free(void* ptr) {
+#define SLAB_START_ADDR(_slab_ptr) (_slab_ptr->pool)
+#define SLAB_END_ADDR(_slab_ptr) \
+    ((struct free_node *) ((uint8_t *)_slab_ptr->pool + _slab_ptr->size))
+
+    /* Get the size of the block to be freed */
+    struct free_node *node = (struct free_node *) ((unsigned int *) ptr - 1);
+
+    /* Find size idx */
+    int size_idx = supported_alloc_size_map(node->alloc_size);
+
     /* Iterate over slabs to find the slab that owns ptr */
-    struct slab *slab = g_alloc.slabs;
+    struct slab *slab = g_allocator.slabs[size_idx];
 
     while (slab != NULL) {
         /* Determine if provided ptr belongs to the current slab */
-        if (ptr >= (void *) slab->nodes && 
-                ptr < (void *) (slab->nodes + slab->size)) {
+        if (node >= SLAB_START_ADDR(slab) && 
+                node < SLAB_END_ADDR(slab)) {
 
             /* Return the pointer to the slab's free list */
-            struct free_node *node = (struct free_node *) ptr;
             node->next = slab->free_list;
             slab->free_list = node;
             slab->used--;
@@ -191,4 +249,7 @@ void slab_allocator_free(void* ptr) {
     /* The provided pointer was never allocated by this slab allocator */
     printf("Unable to free linked_list node back to slab.");
     exit(1);
+
+#undef SLAB_START_ADDR
+#undef SLAB_END_ADDR
 }
