@@ -60,12 +60,6 @@ Notes for slab sizing
     _func(24, ##__VA_ARGS__), \
     _func(32, ##__VA_ARGS__),
 
-//#define SUPPORTED_SIZES_DEF(_func, ...) 
-//    _func(16, ##__VA_ARGS__), 
-//    _func(24, ##__VA_ARGS__), 
-//    _func(32, ##__VA_ARGS__), 
-//    _func(64, ##__VA_ARGS__), 
-
 /* Define an array of supported sizes */
 #define SUPPORTED_SIZES_ELEM(_size) _size
 #define SUPPORTED_SIZES_ARRAY() \

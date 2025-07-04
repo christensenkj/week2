@@ -9,8 +9,8 @@ CFLAGS := $(WARNINGS_ARE_ERRORS) $(COMPILER_OPTIMIZATIONS)
 # Add any source files that you need to be compiled
 # for your linked list here.
 #
-LINKED_LIST_SOURCE_FILES := linked_list.c slab_allocator.c
-LINKED_LIST_OBJECT_FILES := linked_list.o slab_allocator.o
+LINKED_LIST_SOURCE_FILES := linked_list.c slab_allocator.c slab_allocator_test.c
+LINKED_LIST_OBJECT_FILES := linked_list.o slab_allocator.o slab_allocator_test.o
 
 # Add any source files that you need to be compiled
 # for your queue here.
@@ -39,6 +39,7 @@ endif
 # Specify what to test.
 #
 FUNCTIONAL_TEST_COMPILER_DEFINES := -DTEST_LINKED_LIST -DTEST_QUEUE
+#FUNCTIONAL_TEST_COMPILER_DEFINES := -DTEST_LINKED_LIST 
 
 liblinked_list.so : $(LINKED_LIST_OBJECT_FILES)
 	$(CC) $(CFLAGS) $(SO_FLAGS) $^ -o $@

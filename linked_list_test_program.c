@@ -8,6 +8,7 @@
 #include "linked_list.h"
 #include "slab_allocator.h"
 #include "queue.h"
+#include "slab_allocator_test.h"
 
 // Check that valid compiler defines have been passed in.
 //
@@ -559,6 +560,13 @@ void check_linked_list_additional_delete_tests(void) {
 #endif 
 }
 
+void run_slab_allocator_tests(void) {
+    test_basic_alloc_free();
+    test_double_alloc_free();
+    test_exhaust_slab_and_allocate_new();
+    test_free_and_reuse();
+}
+
 int main(void) {
     // Set up signal handler for catching infinite loops.
     //
@@ -577,6 +585,7 @@ int main(void) {
     check_linked_list_find_functionality();
 
     check_linked_list_additional_delete_tests();
+    run_slab_allocator_tests();
 
     return 0;
 }
