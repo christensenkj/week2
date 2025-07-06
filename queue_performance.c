@@ -32,6 +32,8 @@ long average_free_time   = 0L;
 size_t malloc_invocations = 0;
 size_t free_invocations = 0;
 
+struct timespec total_time;
+
 void malloc_microbenchmark(void) {
     for (size_t i = 0; i < MALLOC_MICRO_ITERATIONS; i++) {
         malloc_ptrs[i] = malloc(sizeof(struct node));
@@ -52,6 +54,16 @@ void * instrumented_malloc(size_t size) {
 void instrumented_free(void * addr) {
     ++free_invocations;
     free(addr);
+}
+
+void sum_timespec(struct timespec *destination,
+                  struct timespec additional_time) {
+    destination->tv_nsec += additional_time.tv_nsec;
+    if (destination->tv_nsec > 1000000000L) {
+        ++destination->tv_sec;
+    }
+
+    destination->tv_sec += additional_time.tv_sec;
 }
 
 long compute_timespec_diff(struct timespec start,
@@ -118,6 +130,10 @@ bool breadth_first_search(unsigned int i, unsigned int j) {
     queue_delete(queue);
     GRAB_CLOCK(stop)
     long nanoseconds = compute_timespec_diff(start, stop);
+    struct timespec time_for_sum;
+    time_for_sum.tv_nsec = nanoseconds % 1000000000ULL;
+    time_for_sum.tv_sec  = nanoseconds / 1000000000ULL;
+    sum_timespec(&total_time, time_for_sum);
     printf("Nodes visited: %ld\n", node_count);
     printf("Time elapsed [s]: %0.3f\n", (float)nanoseconds / 1000000000.0f);
     printf("malloc calls : %ld free calls: %ld\n", malloc_invocations, free_invocations);
@@ -170,6 +186,11 @@ int main(void) {
     //
     queue_register_malloc(instrumented_malloc);
     queue_register_free(instrumented_free);
+
+    // Set up some state for perf monitoring.
+    //
+    total_time.tv_sec  = 0;
+    total_time.tv_nsec = 0;
 
 #ifdef COMPILE_ARM_PMU_CODE
     // Register ARM PMUs
@@ -341,6 +362,7 @@ int main(void) {
     }
 
     printf("All work complete, exit.\n");
+    printf("Performed searches in [s]: %0.3f\n", ((float)total_time.tv_sec + ((float)total_time.tv_nsec / 1000000000ULL)));
     fflush(stdout);
 
     // Free
