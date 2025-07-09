@@ -46,7 +46,7 @@ static void slab_allocator_mutex_init(void) {
 #endif
 
 /* Size of the node header, which contains the data size */
-#define NODE_HEADER_SIZE   (sizeof(unsigned int))
+#define NODE_HEADER_SIZE   (sizeof(uint32_t))
 
 /* Global allocator instance */
 static struct slab_allocator g_allocator = {0};
@@ -65,8 +65,9 @@ static inline void allocator_init(void) {
     g_allocator.init = true;
 }
 
-/* Map of allocation block size to slab list index */
-static inline int supported_alloc_size_map(size_t alloc_size) {
+/* Map of allocation block size to slab list index.
+   Fatally errors on failure. */
+static inline int supported_alloc_size_map(uint32_t alloc_size) {
     int idx = -1;
     for (int i = 0; i < MAX_SUPPORTED_SIZES; i++) {
         if (alloc_size == g_allocator.supported_sizes[i]) {
@@ -75,13 +76,17 @@ static inline int supported_alloc_size_map(size_t alloc_size) {
         }
     }
     if (idx == -1) {
-        printf("karston index %d not supported with alloc size %ld\n", idx, alloc_size);
+        printf("Unsupported allocation size: %u.\n", alloc_size);
         exit(1);
     }
     return idx;
 }
 
-static struct slab *create_slab(size_t size_idx) {
+/* Create a slab. Initialize its parameters and partition 
+   its nodes according to the required node size. */
+static struct slab *create_slab(uint32_t size_idx) {
+
+/* Helper macros to improve in-line readability. */
 #define NODE_SIZE(_alloc_size)  (_alloc_size + NODE_HEADER_SIZE)
 #define NEXT_NODE_ADDR(_node, _node_size) \
     (struct free_node *) ((uint8_t *) _node + _node_size)
@@ -95,8 +100,8 @@ static struct slab *create_slab(size_t size_idx) {
     new_slab->prev = NULL;
 
     /* Calculate the number of nodes in the slab */
-    size_t alloc_size = g_allocator.supported_sizes[size_idx];
-    size_t node_size = NODE_SIZE(alloc_size);
+    uint32_t alloc_size = g_allocator.supported_sizes[size_idx];
+    uint32_t node_size = NODE_SIZE(alloc_size);
     new_slab->num_nodes = new_slab->size / node_size;
 
     /* Split the malloc'd chunk into nodes of desired size */
@@ -119,13 +124,13 @@ static struct slab *create_slab(size_t size_idx) {
 }
 
 /* Add a new slab to the allocator's list of managed memory slabs. */
-static struct slab *allocator_add_slab(unsigned int size_idx) {
+static struct slab *allocator_add_slab(uint32_t size_idx) {
     /* Performs a malloc() */
     struct slab *new_slab = create_slab(size_idx);
 
     if (new_slab == NULL) {
          printf("Unable to add new slab to allocator.\n");
-         exit(1);
+         return NULL;
     }
 
     /* Add the new slab to the allocator's slab list */
@@ -140,9 +145,11 @@ static struct slab *allocator_add_slab(unsigned int size_idx) {
     return new_slab;
 }
 
+/* Remove a slab. Free the slab and all of its allocatable
+   nodes. */
 static void allocator_remove_slab(struct slab *slab) {
 
-    size_t alloc_size = slab->pool->alloc_size;
+    uint32_t alloc_size = slab->pool->alloc_size;
     int size_idx = supported_alloc_size_map(alloc_size);
 
     // Removing the only slab in the slab list
@@ -151,7 +158,6 @@ static void allocator_remove_slab(struct slab *slab) {
         free(slab->pool);
         free(slab);
     }
-
     // Removing the head of the slab list
     else if (slab == g_allocator.slabs[size_idx]) {
         g_allocator.slabs[size_idx] = slab->next;
@@ -159,7 +165,7 @@ static void allocator_remove_slab(struct slab *slab) {
         free(slab->pool);
         free(slab);
     }
-
+    // Removing a body node in the slab list
     else {
         if (slab->next != NULL) {
             slab->next->prev = slab->prev;
@@ -178,8 +184,9 @@ static void allocator_remove_slab(struct slab *slab) {
 }
 
 /* Specialized malloc implementation for linked_list node-sized 
-   allocations */
-void* slab_allocator_malloc(size_t alloc_size) {
+   allocations. Searches for a free node in the slab list 
+   containing nodes of the allocation size. */
+void* slab_allocator_malloc(uint32_t alloc_size) {
     /* Initialize global allocator instance on first malloc */
     if (!g_allocator.init) {
         allocator_init();
@@ -212,13 +219,16 @@ void* slab_allocator_malloc(size_t alloc_size) {
     return NULL;
 }
 
+/* Free allocated memory. */
 void slab_allocator_free(void* ptr) {
+
+/* Helper macros for better in-line readability */
 #define SLAB_START_ADDR(_slab_ptr) (_slab_ptr->pool)
 #define SLAB_END_ADDR(_slab_ptr) \
     ((struct free_node *) ((uint8_t *)_slab_ptr->pool + _slab_ptr->size))
 
-    /* Get the size of the block to be freed */
-    struct free_node *node = (struct free_node *) ((unsigned int *) ptr - 1);
+    /* Get the size of the block to be freed from the provided pointer */
+    struct free_node *node = (struct free_node *) ((uint32_t *) ptr - 1);
 
     /* Find size idx */
     int size_idx = supported_alloc_size_map(node->alloc_size);

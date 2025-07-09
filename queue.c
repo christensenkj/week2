@@ -29,8 +29,6 @@ SOFTWARE.
 
 // Function pointers to (potentially) custom malloc() and
 // free() functions.
-// TODO @karston: look into a custom malloc() and free() for linked_list
-// to avoid fragmentation and improve performance.
 static void * (*malloc_fptr)(size_t size) = NULL;
 static void   (*free_fptr)(void* addr)    = NULL; 
 
@@ -60,6 +58,7 @@ struct queue * queue_create(void) {
     return q;
 }
 
+/* Delete a queue */
 bool queue_delete(struct queue * queue) {
     INVALID_PTR_CHECK(queue, false);
     free_fptr(queue->ll);
@@ -67,6 +66,7 @@ bool queue_delete(struct queue * queue) {
     return true;
 }
 
+/* Push new data onto the end of the queue */
 bool queue_push(struct queue * queue, unsigned int data) {
     INVALID_PTR_CHECK(queue, false);
 
@@ -78,6 +78,7 @@ bool queue_push(struct queue * queue, unsigned int data) {
     return true;
 }
 
+/* Pop data from the head of the queue */
 bool queue_pop(struct queue * queue, unsigned int * popped_data __attribute__((unused))) {
     INVALID_PTR_CHECK(queue, false);
 
@@ -90,23 +91,26 @@ bool queue_pop(struct queue * queue, unsigned int * popped_data __attribute__((u
     /* Set the pointer to the data to pop */
     *popped_data = queue->ll->head->data;
 
-    /* Remove the last element of the queue. */
+    /* Remove the first element of the queue. */
     bool ret = linked_list_remove(queue->ll, 0);
     --queue->len;
 
     return ret;
 }
 
+/* Get the size of the queue */
 size_t queue_size(struct queue * queue) {
     INVALID_PTR_CHECK(queue, SIZE_MAX);
     return queue->len;
 }
 
+/* Check if the queue contains readable data */
 bool queue_has_next(struct queue * queue) {
     INVALID_PTR_CHECK(queue, false);
     return queue->len ? true : false;
 }
 
+/* Return the head of the queue in a passed parameter */
 bool queue_next(struct queue * queue, unsigned int * popped_data __attribute__((unused))){
     INVALID_PTR_CHECK(queue, false);
     if (!queue->len) {

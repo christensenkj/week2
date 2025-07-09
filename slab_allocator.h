@@ -54,16 +54,19 @@ Notes for slab sizing
 /* Each slab should take up about 1/4 of the cache */
 #define SLAB_SIZE   (8 * 1024)
 
-/* Supported allocation sizes in bytes as an X macro */
+/* Supported allocation sizes in bytes as an X macro.
+   Add new sizes to support here, no need to update 
+   elsewhere. */
 #define SUPPORTED_SIZES_DEF(_func, ...) \
     _func(16, ##__VA_ARGS__), \
     _func(24, ##__VA_ARGS__), \
     _func(32, ##__VA_ARGS__),
 
-/* Define an array of supported sizes */
+/* Define an array of supported sizes. Automatically
+   resizes with the above X macro. */
 #define SUPPORTED_SIZES_ELEM(_size) _size
 #define SUPPORTED_SIZES_ARRAY() \
-    unsigned int supported_sizes[MAX_SUPPORTED_SIZES] = { \
+    uint32_t supported_sizes[MAX_SUPPORTED_SIZES] = { \
         SUPPORTED_SIZES_DEF(SUPPORTED_SIZES_ELEM) \
     }
 
@@ -78,33 +81,38 @@ typedef enum {
    stdlib malloc. The chunk exists as a list of nodes, sized according
    to allocatable sizes. */
 
+/* Slab node struct. Represents a single allocatable node. */
 struct free_node {
-    unsigned int alloc_size;
+    uint32_t alloc_size;
     struct free_node *next;
 };
 
+/* Slab struct. Represents a slab of nodes, allocated
+   infrequently. */
 struct slab {
     struct free_node *pool;
     struct free_node *free_list;
-    size_t size; // size of the whole slab in bytes
-    size_t num_nodes;
-    size_t used;
+    uint32_t size; // size of the whole slab in bytes
+    uint32_t num_nodes;
+    uint32_t used;
     struct slab *next;
     struct slab *prev;
 };
 
+/* Slab allocator struct. Comprised of multiple slabs and
+   accompanying meta info. */
 struct slab_allocator {
     /* Multiple slab lists, one for each supported alloc size */
     struct slab *slabs[MAX_SUPPORTED_SIZES];  
-    size_t supported_sizes[MAX_SUPPORTED_SIZES];
-    size_t num_slabs[MAX_SUPPORTED_SIZES];
-    size_t num_total_slabs;
-    size_t slab_size;
+    uint32_t supported_sizes[MAX_SUPPORTED_SIZES];
+    uint32_t num_slabs[MAX_SUPPORTED_SIZES];
+    uint32_t num_total_slabs;
+    uint32_t slab_size;
     bool init;
 };
 
 /* Public functions */
-void *slab_allocator_malloc(size_t size);
+void *slab_allocator_malloc(uint32_t size);
 void slab_allocator_free(void* ptr);
 
 #endif
