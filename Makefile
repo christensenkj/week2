@@ -65,6 +65,12 @@ run_valgrind_tests: linked_list_test_program
 run_performance_tests: queue_performance
 	LD_LIBRARY_PATH=`pwd`:$$LD_LIBRARY_PATH ./queue_performance
 
+run_performance_tests_gdb: queue_performance
+	LD_LIBRARY_PATH=`pwd`:$$LD_LIBRARY_PATH gdb ./queue_performance
+
+run_performance_tests_valgrind: queue_performance
+	LD_LIBRARY_PATH=`pwd`:$$LD_LIBRARY_PATH valgrind ./queue_performance
+
 # Special case the Matrix Market I/O code
 mmio.o : mmio.c
 	$(CC) -c -o mmio.o $(CFLAGS) -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-result $^

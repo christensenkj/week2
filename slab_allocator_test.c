@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
+#include "queue.h"
+
+#define TEST_PRINT
 
 void test_basic_alloc_free() {
     printf("Test: Basic alloc/free...\n");
@@ -56,4 +59,20 @@ void test_free_and_reuse() {
     slab_allocator_free(ptr2);
     slab_allocator_free(ptr3);
     printf("  Passed.\n");
+    
+    uint64_t alloc_size = 256;
+    uint64_t num_allocs = 0;
+    while(1) {
+        uint64_t *ptr = malloc(alloc_size);
+        if (ptr == NULL) {
+            printf("Reached memory limit of allocator\n");
+            break;
+        }
+
+        num_allocs++;
+#ifdef TEST_PRINT
+        printf("bytes allocated: %lu\n", num_allocs * alloc_size);
+#endif
+    }
+    printf("num allocs: %lu\n", num_allocs);
 }

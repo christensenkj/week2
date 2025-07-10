@@ -52,7 +52,8 @@ Notes for slab sizing
 */
 
 /* Each slab should take up about 1/4 of the cache */
-#define SLAB_SIZE   (8 * 1024)
+#define SLAB_SIZE   (32 * 1024)
+#define MAX_SLABS   (128 * 1024)
 
 /* Supported allocation sizes in bytes as an X macro.
    Add new sizes to support here, no need to update 
@@ -102,11 +103,11 @@ struct slab {
 /* Slab allocator struct. Comprised of multiple slabs and
    accompanying meta info. */
 struct slab_allocator {
+    uint64_t num_total_slabs;
     /* Multiple slab lists, one for each supported alloc size */
     struct slab *slabs[MAX_SUPPORTED_SIZES];  
     uint32_t supported_sizes[MAX_SUPPORTED_SIZES];
     uint32_t num_slabs[MAX_SUPPORTED_SIZES];
-    uint32_t num_total_slabs;
     uint32_t slab_size;
     bool init;
 };

@@ -26,6 +26,7 @@ SOFTWARE.
 #include "stdlib.h"
 #include "stdint.h"
 #include "stdbool.h"
+#include "stdio.h"
 
 // Function pointers to (potentially) custom malloc() and
 // free() functions.

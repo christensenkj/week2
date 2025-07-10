@@ -93,7 +93,18 @@ static struct slab *create_slab(uint32_t size_idx) {
 
     /* Create a new slab */
     struct slab *new_slab = malloc(sizeof(struct slab));
+    if (new_slab == NULL) {
+        printf("Unable to malloc space for a new slab.\n");
+        return NULL;
+    }
+
     new_slab->pool = malloc(g_allocator.slab_size);
+    if (new_slab->pool == NULL) {
+        printf("Unable to malloc space for a new pool.\n");
+        free(new_slab);
+        return NULL;
+    }
+
     new_slab->size = g_allocator.slab_size;
     new_slab->used = 0;
     new_slab->next = NULL;
@@ -125,6 +136,11 @@ static struct slab *create_slab(uint32_t size_idx) {
 
 /* Add a new slab to the allocator's list of managed memory slabs. */
 static struct slab *allocator_add_slab(uint32_t size_idx) {
+    /* Check to make sure we're not over-allocating */
+    if (g_allocator.num_total_slabs + 1 > MAX_SLABS) {
+        printf("Allocated too many slabs: %lu\n", g_allocator.num_total_slabs);
+        return NULL;
+    }
     /* Performs a malloc() */
     struct slab *new_slab = create_slab(size_idx);
 

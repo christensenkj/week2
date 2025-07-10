@@ -69,10 +69,22 @@ void * instrumented_malloc(size_t size) {
 	return NULL;
     }
 
+#ifdef CUSTOM_ALLOCATOR
     void * ptr = slab_allocator_malloc(size);
+#else
+    void * ptr = malloc(size);
+#endif
     instrumented_malloc_last_alloc_successful = (ptr != NULL);
 
     return ptr;
+}
+
+void instrumented_free(void * addr) {
+#ifdef CUSTOM_ALLOCATOR
+    return slab_allocator_free(addr);
+#else
+    return free(addr);
+#endif
 }
 
 // Tests linked list and queue handling of being passed NULL pointers.
@@ -575,9 +587,9 @@ int main(void) {
     // Setup instrumented memory allocation/deallocation.
     //
     linked_list_register_malloc(&instrumented_malloc);
-    linked_list_register_free(&slab_allocator_free);
+    linked_list_register_free(&instrumented_free);
     queue_register_malloc(&instrumented_malloc);
-    queue_register_free(&slab_allocator_free);
+    queue_register_free(&instrumented_free);
 
     check_null_handling();
     check_empty_list_and_queue_properties();
