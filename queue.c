@@ -40,6 +40,7 @@ static void   (*free_fptr)(void* addr)    = NULL;
 bool queue_register_malloc(void * (*malloc)(size_t)) {
     INVALID_PTR_CHECK(malloc, false);
     malloc_fptr = malloc;
+    linked_list_register_malloc(malloc);
     return true;
 }
 
@@ -47,6 +48,7 @@ bool queue_register_malloc(void * (*malloc)(size_t)) {
 bool queue_register_free(void (*free)(void*)) {
     INVALID_PTR_CHECK(free, false);
     free_fptr = free; 
+    linked_list_register_free(free);
     return true;
 }
 
@@ -62,7 +64,7 @@ struct queue * queue_create(void) {
 /* Delete a queue */
 bool queue_delete(struct queue * queue) {
     INVALID_PTR_CHECK(queue, false);
-    free_fptr(queue->ll);
+    linked_list_delete(queue->ll);
     free_fptr(queue);
     return true;
 }

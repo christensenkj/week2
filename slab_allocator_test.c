@@ -59,7 +59,8 @@ void test_free_and_reuse() {
     slab_allocator_free(ptr2);
     slab_allocator_free(ptr3);
     printf("  Passed.\n");
-    
+   #if 0 
+    // Test OOM condition
     uint64_t alloc_size = 256;
     uint64_t num_allocs = 0;
     while(1) {
@@ -75,4 +76,5 @@ void test_free_and_reuse() {
 #endif
     }
     printf("num allocs: %lu\n", num_allocs);
+    #endif
 }

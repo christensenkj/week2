@@ -10,6 +10,9 @@
 #include "queue.h"
 #include "slab_allocator_test.h"
 
+// Define this is you wish to run with the custom allocator
+#define SLAB_ALLOCATOR_TEST
+
 // Check that valid compiler defines have been passed in.
 //
 #ifdef TEST_LINKED_LIST
@@ -69,7 +72,7 @@ void * instrumented_malloc(size_t size) {
 	return NULL;
     }
 
-#ifdef CUSTOM_ALLOCATOR
+#ifdef SLAB_ALLOCATOR_TEST 
     void * ptr = slab_allocator_malloc(size);
 #else
     void * ptr = malloc(size);
@@ -80,7 +83,7 @@ void * instrumented_malloc(size_t size) {
 }
 
 void instrumented_free(void * addr) {
-#ifdef CUSTOM_ALLOCATOR
+#ifdef SLAB_ALLOCATOR_TEST 
     return slab_allocator_free(addr);
 #else
     return free(addr);
@@ -586,8 +589,6 @@ int main(void) {
 
     // Setup instrumented memory allocation/deallocation.
     //
-    linked_list_register_malloc(&instrumented_malloc);
-    linked_list_register_free(&instrumented_free);
     queue_register_malloc(&instrumented_malloc);
     queue_register_free(&instrumented_free);
 

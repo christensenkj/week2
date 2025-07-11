@@ -11,6 +11,7 @@
 
 #include "mmio.h"
 #include "queue.h"
+#include "slab_allocator.h"
 
 // A hacky adjacency matrix. 
 //
@@ -26,6 +27,10 @@ struct row ** rows = NULL;
 //
 #define GRAB_CLOCK(x) clock_gettime(CLOCK_MONOTONIC, &x);
 #define MALLOC_MICRO_ITERATIONS 10000
+
+// Define this is you wish to run with the custom allocator
+//#define SLAB_ALLOCATOR_TEST
+
 void * malloc_ptrs[MALLOC_MICRO_ITERATIONS];
 long average_malloc_time = 0L;
 long average_free_time   = 0L;
@@ -48,12 +53,20 @@ void free_microbenchmark(void) {
 
 void * instrumented_malloc(size_t size) {
     ++malloc_invocations;
+    #ifdef SLAB_ALLOCATOR_TEST
+    return slab_allocator_malloc(size);
+    #else
     return malloc(size);
+    #endif
 }
 
 void instrumented_free(void * addr) {
     ++free_invocations;
-    free(addr);
+    #ifdef SLAB_ALLOCATOR_TEST
+    return slab_allocator_free(addr);
+    #else
+    return free(addr);
+    #endif
 }
 
 void sum_timespec(struct timespec *destination,
@@ -91,41 +104,41 @@ bool breadth_first_search(unsigned int i, unsigned int j) {
     GRAB_CLOCK(start)
     while(!found_path) {
         // Push data onto the queue.
-	//
+        //
         struct row * row = rows[next_node];
 
-	if (row == NULL || row->visited) {
+        if (row == NULL || row->visited) {
             bool not_done = queue_pop(queue, &next_node);
-	    ++node_count;
-	    if (!not_done) break;
-	    continue;
-	} else {
+            ++node_count;
+            if (!not_done) break;
+            continue;
+        } else {
             row->visited = true;
-	}
+        }
 
-	if (row != NULL) {
-	    for(size_t node = 0; node < row->size; node++) {
+        if (row != NULL) {
+            for(size_t node = 0; node < row->size; node++) {
                 unsigned int data = row->adjacent_nodes[node];
-	        // Check if we found the node.
-	        //
-	        if (j == data) {
+                // Check if we found the node.
+                //
+                if (j == data) {
                     found_path = true;
-	        }
+                }
                 bool sanity = queue_push(queue, row->adjacent_nodes[node]);
-		if (!sanity) {
+                if (!sanity) {
                     printf("Error pushing into queue.\n");
-		    return 1;
-		}
-	    }
-	}
+                    return 1;
+                }
+            }
+        }
 
-	// Pop the next row off the queue.
-	//
-	bool full = queue_pop(queue, &next_node);
-	if (!full) {
+        // Pop the next row off the queue.
+        //
+        bool full = queue_pop(queue, &next_node);
+        if (!full) {
             break;
-	}
-	++node_count;
+        }
+        ++node_count;
     }
     queue_delete(queue);
     GRAB_CLOCK(stop)
@@ -214,18 +227,26 @@ int main(void) {
     //
     struct timespec malloc_start, malloc_end;
     struct timespec free_start, free_end;
+    unsigned int total_malloc_time = 0;
+    unsigned int total_free_time = 0;
+    int total_microbenchmark_iter = 1;
+    for (int i = 0; i < total_microbenchmark_iter; i++) {
+        GRAB_CLOCK(malloc_start)
+        malloc_microbenchmark();
+        GRAB_CLOCK(malloc_end)
+        GRAB_CLOCK(free_start)
+        free_microbenchmark();
+        GRAB_CLOCK(free_end)
+        average_malloc_time = compute_timespec_diff(malloc_start, malloc_end) / MALLOC_MICRO_ITERATIONS;
+        average_free_time   = compute_timespec_diff(free_start, free_end) / MALLOC_MICRO_ITERATIONS;
+        total_malloc_time = total_malloc_time + average_malloc_time;
+        total_free_time = total_free_time + average_free_time;
 
-    GRAB_CLOCK(malloc_start)
-    malloc_microbenchmark();
-    GRAB_CLOCK(malloc_end)
-    GRAB_CLOCK(free_start)
-    free_microbenchmark();
-    GRAB_CLOCK(free_end)
-    average_malloc_time = compute_timespec_diff(malloc_start, malloc_end) / MALLOC_MICRO_ITERATIONS;
-    average_free_time   = compute_timespec_diff(free_start, free_end) / MALLOC_MICRO_ITERATIONS;
-
-    printf("Average time [ns] per malloc() call: %ld\n", average_malloc_time);
-    printf("Average time [ns] per free() call: %ld\n", average_free_time);
+        //printf("Average time [ns] per malloc() call: %ld\n", average_malloc_time);
+        //printf("Average time [ns] per free() call: %ld\n\n", average_free_time);
+    }
+    printf("Overall time [ns] per malloc() call: %d\n", total_malloc_time/total_microbenchmark_iter);
+    printf("Overall time [ns] per free() call: %d\n\n", total_free_time/total_microbenchmark_iter);
 
     // Parse the file.
     //

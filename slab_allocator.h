@@ -52,8 +52,8 @@ Notes for slab sizing
 */
 
 /* Each slab should take up about 1/4 of the cache */
-#define SLAB_SIZE   (32 * 1024)
-#define MAX_SLABS   (128 * 1024)
+#define SLAB_SIZE   (512 * 1024)
+#define MAX_SLABS   (512 * 1024)
 
 /* Supported allocation sizes in bytes as an X macro.
    Add new sizes to support here, no need to update 
